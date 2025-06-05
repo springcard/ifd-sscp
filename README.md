@@ -44,6 +44,13 @@ More information and source code can be found on the official project website:
 - Reader device supporting **SPAC SSCPv2** in transparent mode
 - C compiler, cmake and make
 
+On Debian & Ubuntu, use this command line to install `pcsc-lite` and development headers
+
+```bash
+sudo apt update
+sudo apt install pcscd pcsc-tools libpcsclite-dev
+```
+
 ### Build and install
 
 ```bash
@@ -60,7 +67,7 @@ This will compile and install the handler into the appropriate `pcsc-lite` direc
 
 ### Configure
 
-As root or a sudoer, create a file named `/etc/reader.conf.d/ifd-sscp`
+As root or a *sudoer*, create a file named `/etc/reader.conf.d/ifd-sscp`
 
 Edit this file and enter the following content
 
@@ -89,7 +96,7 @@ Launch the PC/SC daemon manually
 sudo pcscd -f -d
 ```
 
-If everything is OK, you must hear your Reader beep, and see positive messages in the console.
+If everything is OK, you must ear your Reader beep, and see positive messages in the console.
 Otherwise, observe the log and debug!
 
 ## License
