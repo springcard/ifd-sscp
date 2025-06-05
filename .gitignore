@@ -1,0 +1,33 @@
+# Build directories
+/build/
+/build-*/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Visual Studio generated files
+*.sln
+*.vcxproj*
+*.pdb
+*.obj
+*.user
+*.log
+*.idb
+*.opendb
+/.vscode/
+
+# Executables
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.a
+*.lib
+
+# Others
+*.swp
+*.DS_Store

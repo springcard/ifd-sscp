@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>libifd-sscp.so</string>
+  <key>ifdManufacturerString</key>
+  <string>SSCP</string>
+  <key>ifdProductString</key>
+  <string>IFD SSCP Simulator</string>
+  <key>ifdVendorID</key>
+  <string>0xFFFF</string>
+  <key>ifdProductID</key>
+  <string>0x0001</string>
+  <key>ifdFriendlyName</key>
+  <string>IFD SSCP</string>
+</plist>
