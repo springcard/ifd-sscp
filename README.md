@@ -18,13 +18,13 @@ It provides a bridge between the PC/SC daemon (`pcscd`) and SSCPv2-compatible NF
 This handler sits between `pcscd` and an NFC reader using the SSCPv2 protocol in transparent mode. It communicates over serial or USB interfaces to perform smart card operations.
 
 ```
-+-----------+        +---------------------+        +--------------------------+
++-------------+      +--------------------------+      +---------------------------+
 | Application | <--> | PC/SC Lite (libpcsclite) | <--> | pcscd + ifd-sscp (driver) |
-+-----------+        +---------------------+        +--------------------------+
-                                                            |
-                                                    +--------------------+
-                                                    | NFC Reader (SSCPv2) |
-                                                    +--------------------+
++-------------+      +--------------------------+      +---------------------------+
+                                                                     |
+                                                           +---------------------+
+                                                           | NFC Reader (SSCPv2) |
+                                                           +---------------------+
 ```
 
 ## About PC/SC-Lite
@@ -54,7 +54,7 @@ sudo apt install pcscd pcsc-tools libpcsclite-dev
 ### Build and install
 
 ```bash
-git clone https://github.com/your-org/ifd-sscp.git
+git clone https://github.com/springcard/ifd-sscp.git
 cd ifd-sscp
 mkdir build
 cd build
