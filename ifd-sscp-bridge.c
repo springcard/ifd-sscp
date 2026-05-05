@@ -164,10 +164,11 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
         return FALSE;
     }
 
-	rc = SSCP_SetAddress(vars->sscp_ctx, vars->address);
+    /* Select the target address locally; SSCP_SetAddress writes a new address to the reader. */
+	rc = SSCP_SelectAddress(vars->sscp_ctx, vars->address);
 	if (rc)
 	{
-		IFDH_LOG_CRITICAL("SSCP_SetAddress(%02X) failed (err. %d)", vars->address, rc);
+		IFDH_LOG_CRITICAL("SSCP_SelectAddress(%02X) failed (err. %d)", vars->address, rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
 	}
