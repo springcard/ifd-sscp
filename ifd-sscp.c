@@ -12,6 +12,7 @@
 const char *Name = "libifd-sscp.so";
 
 #define TRANSMIT_TIMEOUT 1000
+#define CONTROL_TIMEOUT 1000
 
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,	LPSTR Device, DWORD Channel)
 {
@@ -38,19 +39,19 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,	LPSTR Device, DWORD 
 
 RESPONSECODE IFDHCreateChannel(DWORD Lun, DWORD Channel)
 {
-    printf("%s:IFDHCreateChannel(Lun=%08X, Channel=%08X)\n", Name, Lun, Channel);
+    IFDH_LOG_INFO("IFDHCreateChannel(Lun=%08X, Channel=%08X)", Lun, Channel);
     return CreateChannelByNameOrChannel(Lun, NULL, Channel);
 }
 
 RESPONSECODE IFDHCreateChannelByName(DWORD Lun, LPSTR Device)
 {
-    printf("%s:IFDHCreateChannelByName(Lun=%08X, Device=%s)\n", Name, Lun, Device);
+    IFDH_LOG_INFO("IFDHCreateChannelByName(Lun=%08X, Device=%s)", Lun, Device);
     return CreateChannelByNameOrChannel(Lun, Device, (DWORD) -1);
 }
 
 RESPONSECODE IFDHCloseChannel(DWORD Lun)
 {
-    printf("%s:IFDHCloseChannel(Lun=%08X)\n", Name, Lun);
+    IFDH_LOG_INFO("IFDHCloseChannel(Lun=%08X)", Lun);
     return IFD_SUCCESS;
 }
 
@@ -58,13 +59,28 @@ RESPONSECODE IFDHControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD Tx
                          PUCHAR RxBuffer, DWORD RxLength,
                          PDWORD RxReturnLength)
 {
-    printf("%s:IFDHControl(Lun=%08X)\n", Name, Lun);
-    return IFD_SUCCESS;
+    RESPONSECODE responseCode = IFD_COMMUNICATION_ERROR;
+    DWORD rxLengthAct = 0;
+
+    IFDH_LOG_COMM("IFDHControl(Lun=%08X, ControlCode=%08X, TxLength=%lu)", Lun, ControlCode, TxLength);
+
+    if (RxReturnLength == NULL)
+        return IFD_COMMUNICATION_ERROR;
+
+    *RxReturnLength = 0;
+
+    if (!IFDHAsyncControl(Lun, ControlCode, TxBuffer, TxLength, RxBuffer, RxLength))
+        return IFD_COMMUNICATION_ERROR;
+    if (!IFDHWaitControl(Lun, CONTROL_TIMEOUT, &rxLengthAct, &responseCode))
+        return IFD_COMMUNICATION_ERROR;
+
+    *RxReturnLength = rxLengthAct;
+    return responseCode;
 }
 
 static RESPONSECODE IFDHWaitCardProc(DWORD Lun, int Timeout)
 {
-    printf("%s:IFDHWaitCardProc(Lun=%08X, Timeout=%d)\n", Name, Lun, Timeout);
+    IFDH_LOG_PERIODIC("IFDHWaitCardProc(Lun=%08X, Timeout=%d)", Lun, Timeout);
     if (!IFDHWaitStatusChange(Lun, Timeout))
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHIsReaderOnline(Lun))
@@ -83,7 +99,7 @@ static RESPONSECODE IFDHWaitCardKill(DWORD Lun, int Timeout)
 
 RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Value)
 {
-    printf("%s:IFDHGetCapabilities(Lun=%08X, Tag=%08X)\n", Name, Lun, Tag);
+    IFDH_LOG_INFO("IFDHGetCapabilities(Lun=%08X, Tag=%08X)", Lun, Tag);
 
     switch (Tag)
     {
@@ -134,13 +150,13 @@ RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag, PDWORD Length, PUCHAR Val
 
 RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag, DWORD Length, PUCHAR Value)
 {
-    printf("%s:IFDHGetCapabilities(Lun=%08X)\n", Name, Lun);
+    IFDH_LOG_INFO("IFDHSetCapabilities(Lun=%08X)", Lun);
     return IFD_ERROR_TAG;
 }
 
 RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 {
-    printf("%s:IFDHPowerICC(Lun=%08X, Action=%lu)\n", Name, Lun, Action);
+    IFDH_LOG_INFO("IFDHPowerICC(Lun=%08X, Action=%lu)", Lun, Action);
     if (!IFDHIsReaderOnline(Lun))
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHIsCardPresent(Lun))
@@ -175,7 +191,7 @@ RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
                                 PUCHAR RxBuffer, PDWORD RxLength,
                                 PSCARD_IO_HEADER RecvPci)
 {
-    printf("%s:IFDHTransmitToICC[In](Lun=%08X, TxLength=%lu)\n", Name, Lun, TxLength);
+    IFDH_LOG_COMM("IFDHTransmitToICC[In](Lun=%08X, TxLength=%lu)", Lun, TxLength);
     if (!IFDHIsReaderOnline(Lun))
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHIsCardPresent(Lun))
@@ -184,13 +200,13 @@ RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHWaitTransmit(Lun, TRANSMIT_TIMEOUT, RxLength))
         return IFD_COMMUNICATION_ERROR;
-    printf("%s:IFDHTransmitToICC[Out](Lun=%08X, RxLength=%lu)\n", Name, Lun, *RxLength);
+    IFDH_LOG_COMM("IFDHTransmitToICC[Out](Lun=%08X, RxLength=%lu)", Lun, *RxLength);
     return IFD_SUCCESS;
 }
 
 RESPONSECODE IFDHICCPresence(DWORD Lun)
 {
-    printf("%s:IFDHICCPresence(Lun=%08X)\n", Name, Lun);
+    IFDH_LOG_PERIODIC("IFDHICCPresence(Lun=%08X)", Lun);
     if (!IFDHIsReaderOnline(Lun))
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHIsCardPresent(Lun))
@@ -201,5 +217,5 @@ RESPONSECODE IFDHICCPresence(DWORD Lun)
 __attribute__((constructor))
 void on_load(void)
 {
-    printf("%s:Library loaded\n", Name);
+    IFDH_LOG_INFO("Library loaded");
 }

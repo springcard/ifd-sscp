@@ -18,6 +18,7 @@
 #include <errno.h>
 
 #include <sscp-host.h>
+#include "ifd-sscp-debug.h"
 
 #define IFDH_SSCP_DEFAULT_ADDRESS 0x01
 #define IFDH_SSCP_DEFAULT_BITRATE 38400
@@ -35,8 +36,12 @@ BOOL IFDHPowerDown(DWORD Lun);
 BOOL IFDHGetAtr(DWORD Lun, PUCHAR Atr, PDWORD AtrLength);
 BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength);
 BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength);
-BOOL IFDHAsyncControl(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength);
-BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength);
+BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength);
+BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *ControlResponse);
+
+#define IFDH_SSCP_CONTROL_OUTPUTS SSCP_CMD_OUTPUTS
+#define IFDH_SSCP_CONTROL_OUTPUTS_RGB SSCP_CMD_OUTPUT_RGB
+#define IFDH_SSCP_CONTROL_EXTERNAL_LED_RGB SSCP_CMD_EXTERNAL_LED_COLORS
 
 #define IFDH_SSCP_ACTION_IDLE 0
 #define IFDH_SSCP_ACTION_CONTROL 1
@@ -107,11 +112,13 @@ typedef struct
         } transmit;
         struct
         {
+            DWORD controlCode;
             BYTE *txBuffer;
             DWORD txLength;
             BYTE *rxBuffer;
             DWORD rxLengthMax;
             DWORD rxLengthAct;
+            RESPONSECODE responseCode;
         } control;
     } x;
     

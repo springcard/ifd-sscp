@@ -11,7 +11,7 @@ static void *IFDH_SSCP_Proc(void *arg)
     IFDH_SSCP_DATA_ST *vars = (IFDH_SSCP_DATA_ST *)arg;
     LONG rc;
 
-    printf("%s:Thread starting\n", Name);
+    IFDH_LOG_INFO("Thread starting");
 
     while (1)
     {
@@ -19,7 +19,7 @@ static void *IFDH_SSCP_Proc(void *arg)
 
         if (!vars->running)
         {
-            printf("%s:Not running anymore\n", Name);
+            IFDH_LOG_INFO("Not running anymore");
             break;
         }
 
@@ -32,16 +32,16 @@ static void *IFDH_SSCP_Proc(void *arg)
                     if ((vars->cardState.present) && (vars->cardState.active))
                     {
                         /* The card is active, we shall not do a polling, but a tracking. Let's track with empty APDUs, in the hope the reader supports it */
-                        printf("Tracking...\n");
+                        IFDH_LOG_PERIODIC("Tracking...");
                         rc = SSCP_TransceiveNFC(vars->sscp_ctx, NULL, 0, NULL, 0, NULL);
                         if (rc == SSCP_SUCCESS)
                         {
                             /* Success, card is still there */
-                            printf("Tracking:Card still present\n");
+                            IFDH_LOG_PERIODIC("Tracking: card still present");
                         }
                         else if ((rc == SSCP_ERR_NFC_CARD_MUTE_OR_REMOVED) || (rc == SSCP_ERR_NFC_CARD_COMM_ERROR))
                         {
-                            printf("Tracking:Card lost\n");
+                            IFDH_LOG_INFO("Tracking: card lost");
                             /* Reset card data */
                             memset(&vars->cardState, 0, sizeof(vars->cardState));
                             /* Say we have lost the card */
@@ -49,11 +49,11 @@ static void *IFDH_SSCP_Proc(void *arg)
                         }
                         else if (rc == 2)
                         {
-                            printf("Tracking:Not supported by the reader\n");
+                            IFDH_LOG_INFO("Tracking: not supported by the reader");
                         }
                         else
                         {
-                            printf("Tracking:Reader error %d\n", rc);
+                            IFDH_LOG_CRITICAL("Tracking: reader error %d", rc);
                             /* We have lost the reader? */
                             vars->readerState.available = FALSE;
                         }
@@ -61,19 +61,19 @@ static void *IFDH_SSCP_Proc(void *arg)
                     else
                     {
                         /* The card is either absent or not active, we can do the polling */
-                        printf("Polling...\n");
+                        IFDH_LOG_PERIODIC("Polling...");
                         rc = SSCP_ScanNFC(vars->sscp_ctx, &vars->cardState.protocol, vars->cardState.uid, sizeof(vars->cardState.uid), &vars->cardState.uidLength, vars->cardState.ats, sizeof(vars->cardState.ats), &vars->cardState.atsLength);
                         if (rc == SSCP_SUCCESS)
                         {
                             BOOL oldCardPresent = vars->cardState.present;
                             if (vars->cardState.protocol)
                             {
-                                printf("Polling:Card inserted, protocol=%04X\n", vars->cardState.protocol);
+                                IFDH_LOG_INFO("Polling: card inserted, protocol=%04X", vars->cardState.protocol);
                                 vars->cardState.present = TRUE;
                             }
                             else
                             {
-                                printf("Polling:Card inserted, but protocol=0\n");
+                                IFDH_LOG_INFO("Polling: card inserted, but protocol=0");
                                 vars->cardState.present = FALSE;
                             }
                             /* Status has changed! */
@@ -82,13 +82,13 @@ static void *IFDH_SSCP_Proc(void *arg)
                         }
                         else
                         {
-                            printf("Polling:Reader error %d\n", rc);
+                            IFDH_LOG_CRITICAL("Polling: reader error %d", rc);
                             vars->readerState.available = FALSE;
                         }
                     }
                 break;
                 case IFDH_SSCP_ACTION_CONTROL :
-                    /* TODO */
+                    vars->x.control.responseCode = IFDH_SSCP_Control(vars);
                     vars->readerAction = IFDH_SSCP_ACTION_CONTROL_RESP;
                     SetEvent(&vars->responseEvent);
                 break;
@@ -114,7 +114,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     else
                     {
                         /* We have lost the reader? */
-                        printf("Transmit:Reader error %d\n", rc);
+                        IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
                         vars->readerState.available = FALSE;
                     }
                     SetEvent(&vars->responseEvent);
@@ -130,13 +130,13 @@ static void *IFDH_SSCP_Proc(void *arg)
                     }
                     else
                     {
-                        printf("Disconnect:Reader error %d\n", rc);
+                        IFDH_LOG_CRITICAL("Disconnect: reader error %d", rc);
                         vars->readerState.available = FALSE;
                     }
                 break;
 
                 default:
-                    printf("%s:Invalid reader action %d\n", Name, vars->readerAction);
+                    IFDH_LOG_CRITICAL("Invalid reader action %d", vars->readerAction);
                     vars->readerAction = IFDH_SSCP_ACTION_IDLE;
                     break;
             }
@@ -144,7 +144,7 @@ static void *IFDH_SSCP_Proc(void *arg)
         Unlock(vars);
     }
 
-    printf("%s:Thread terminating\n", Name);
+    IFDH_LOG_INFO("Thread terminating");
 }
 
 static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
@@ -160,14 +160,14 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
     rc = SSCP_Open(vars->sscp_ctx, vars->device, vars->bitrate, 0);
     if (rc != SSCP_SUCCESS)
     {
-        printf("SSCP_Open(%s, %lu) failed (err. %d)\n", vars->device, vars->bitrate, rc);
+        IFDH_LOG_CRITICAL("SSCP_Open(%s, %lu) failed (err. %d)", vars->device, vars->bitrate, rc);
         return FALSE;
     }
 
 	rc = SSCP_SetAddress(vars->sscp_ctx, vars->address);
 	if (rc)
 	{
-		printf("SSCP_SetAddress(%02X) failed (err. %d)\n", vars->address, rc);
+		IFDH_LOG_CRITICAL("SSCP_SetAddress(%02X) failed (err. %d)", vars->address, rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
 	}
@@ -175,7 +175,7 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
 	rc = SSCP_Authenticate(vars->sscp_ctx, vars->hasAuthKey ? vars->authKey : NULL);
 	if (rc)
 	{
-		printf("SSCP_Authenticate failed (err. %d)\n", rc);
+		IFDH_LOG_CRITICAL("SSCP_Authenticate failed (err. %d)", rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
 	}
@@ -183,7 +183,7 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
 	rc = SSCP_Outputs(vars->sscp_ctx, 0x02, 0x0A, 0x02);
 	if (rc)
 	{
-		printf("SSCP_Outputs failed (err. %d)\n", rc);
+		IFDH_LOG_CRITICAL("SSCP_Outputs failed (err. %d)", rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
 	}
@@ -191,29 +191,30 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
     rc = SSCP_GetInfos(vars->sscp_ctx, &vars->readerInfo.version, &vars->readerInfo.baudrate, &vars->readerInfo.address, &vars->readerInfo.voltage);
     if (rc)
     {
-        printf("SSCP_GetInfos failed (err. %d)\n", rc);
+        IFDH_LOG_CRITICAL("SSCP_GetInfos failed (err. %d)", rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
     }
-    printf("SSCP_GetInfos OK, version=%02X, baudrate=%02X, address=%02X, voltage=%04X\n", vars->readerInfo.version, vars->readerInfo.baudrate, vars->readerInfo.address, vars->readerInfo.voltage);
+    IFDH_LOG_INFO("SSCP_GetInfos OK, version=%02X, baudrate=%02X, address=%02X, voltage=%04X",
+                  vars->readerInfo.version, vars->readerInfo.baudrate, vars->readerInfo.address, vars->readerInfo.voltage);
 
     rc = SSCP_GetSerialNumber(vars->sscp_ctx, vars->readerInfo.serialNumber, sizeof(vars->readerInfo.serialNumber));
     if (rc)
     {
-        printf("SSCP_GetSerialNumber failed (err. %d)\n", rc);
+        IFDH_LOG_CRITICAL("SSCP_GetSerialNumber failed (err. %d)", rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
     }
-    printf("SSCP_GetSerialNumber OK, serialNumber=%s\n", vars->readerInfo.serialNumber);
+    IFDH_LOG_INFO("SSCP_GetSerialNumber OK, serialNumber=%s", vars->readerInfo.serialNumber);
 
     rc = SSCP_GetReaderType(vars->sscp_ctx, vars->readerInfo.readerType, sizeof(vars->readerInfo.readerType));
     if (rc)
     {
-        printf("SSCP_GetReaderType failed (err. %d)\n", rc);
+        IFDH_LOG_CRITICAL("SSCP_GetReaderType failed (err. %d)", rc);
 		SSCP_Close(vars->sscp_ctx);
         return FALSE;
     }
-    printf("SSCP_GetReaderType OK, readerType=%s\n", vars->readerInfo.readerType);
+    IFDH_LOG_INFO("SSCP_GetReaderType OK, readerType=%s", vars->readerInfo.readerType);
 
     vars->readerState.open = TRUE;
     vars->readerState.available = TRUE;
@@ -227,18 +228,18 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
     BOOL actionEventCreated = FALSE;
     BOOL responseEventCreated = FALSE;
 
-    SSCP_DEBUG_SERIAL = TRUE;
-    SSCP_DEBUG_EXCHANGE = TRUE;
+    SSCP_DEBUG_SERIAL = FALSE;
+    SSCP_DEBUG_EXCHANGE = FALSE;
 
     if ((Device == NULL) || (Device[0] == '\0'))
     {
-        printf("%s:Invalid device\n", Name);
+        IFDH_LOG_CRITICAL("Invalid device");
         return FALSE;
     }
 
     if (global_vars != NULL)
     {
-        printf("%s:Driver is not yet thread-safe\n", Name);
+        IFDH_LOG_CRITICAL("Driver is not yet thread-safe");
         return FALSE;
     }
 
@@ -246,13 +247,13 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
     global_vars = calloc(1, sizeof(IFDH_SSCP_DATA_ST));
     if (global_vars == NULL)
     {
-        printf("%s:Alloc variables failed\n", Name);
+        IFDH_LOG_CRITICAL("Alloc variables failed");
         return FALSE;
     }
     global_vars->sscp_ctx = SSCP_Alloc();
     if (global_vars->sscp_ctx == NULL)
     {
-        printf("%s:Alloc context failed\n", Name);
+        IFDH_LOG_CRITICAL("Alloc context failed");
         free(global_vars);
         global_vars = NULL;
         return FALSE;
@@ -269,30 +270,30 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
     global_vars->device = strdup(Device);
     if (global_vars->device == NULL)
     {
-        printf("%s:Alloc device failed\n", Name);
+        IFDH_LOG_CRITICAL("Alloc device failed");
         goto failed;
     }
     if (!CreateMutex(&global_vars->mutex))
     {
-        printf("%s:Create mutex failed\n", Name);
+        IFDH_LOG_CRITICAL("Create mutex failed");
         goto failed;
     }
     mutexCreated = TRUE;
     if (!CreateEvent(&global_vars->statusEvent))
     {
-        printf("%s:Create event failed\n", Name);
+        IFDH_LOG_CRITICAL("Create event failed");
         goto failed;
     }
     statusEventCreated = TRUE;
     if (!CreateEvent(&global_vars->actionEvent))
     {
-        printf("%s:Create event failed\n", Name);
+        IFDH_LOG_CRITICAL("Create event failed");
         goto failed;
     }
     actionEventCreated = TRUE;
     if (!CreateEvent(&global_vars->responseEvent))
     {
-        printf("%s:Create event failed\n", Name);
+        IFDH_LOG_CRITICAL("Create event failed");
         goto failed;
     }
     responseEventCreated = TRUE;
@@ -301,14 +302,14 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
     /* Open the device */
     if (!IFDHOpen(global_vars))
     {
-        printf("%s:Open device %s:%02X at %lu failed\n", Name, Device, Address, global_vars->bitrate);
+        IFDH_LOG_CRITICAL("Open device %s:%02X at %lu failed", Device, Address, global_vars->bitrate);
         goto failed;
     }
 
     /* Create the thread */
     if (pthread_create(&global_vars->thread_id, NULL, IFDH_SSCP_Proc, global_vars) != 0)
     {
-        printf("%s:Failed to start SSCP thread\n", Name);
+        IFDH_LOG_CRITICAL("Failed to start SSCP thread");
         goto failed;
     }
 
@@ -337,7 +338,7 @@ BOOL IFDHDestroy(DWORD Lun)
 {
     if (global_vars == NULL)
     {
-        printf("%s:Driver is not started\n", Name);
+        IFDH_LOG_CRITICAL("Driver is not started");
         return FALSE;
     }
 
@@ -350,7 +351,7 @@ BOOL IFDHDestroy(DWORD Lun)
     /* Join the thread */
     if (pthread_join(global_vars->thread_id, NULL) != 0)
     {
-        printf("%s:Thread to stop the driver\n", Name);
+        IFDH_LOG_CRITICAL("Failed to stop the driver thread");
         return FALSE;
     }
 
@@ -528,7 +529,7 @@ BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength)
     return TRUE;
 }
 
-BOOL IFDHAsyncControl(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength)
+BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength)
 {
     BOOL rc = FALSE;
     if (global_vars == NULL)
@@ -538,10 +539,13 @@ BOOL IFDHAsyncControl(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffe
         if ((global_vars->readerState.available) && (global_vars->readerAction == IFDH_SSCP_ACTION_IDLE))
         {
             /* Store the buffer */
+            global_vars->x.control.controlCode = ControlCode;
             global_vars->x.control.txBuffer = TxBuffer;
             global_vars->x.control.txLength = TxLength;
             global_vars->x.control.rxBuffer = RxBuffer;
             global_vars->x.control.rxLengthMax = RxLength;
+            global_vars->x.control.rxLengthAct = 0;
+            global_vars->x.control.responseCode = IFD_COMMUNICATION_ERROR;
             /* Be ready to receive */
             ClearEvent(&global_vars->responseEvent);
             /* Tell the SSCP thread we have something to control */
@@ -555,7 +559,7 @@ BOOL IFDHAsyncControl(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffe
     return rc;
 }
 
-BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength)
+BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *ControlResponse)
 {
     BOOL rc = FALSE;
     if (global_vars == NULL)
@@ -567,7 +571,10 @@ BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength)
         if (global_vars->readerAction == IFDH_SSCP_ACTION_CONTROL_RESP)
         {
             /* Retrieve the length of the response */
-            *RxLength = global_vars->x.control.rxLengthAct;
+            if (RxLength != NULL)
+                *RxLength = global_vars->x.control.rxLengthAct;
+            if (ControlResponse != NULL)
+                *ControlResponse = global_vars->x.control.responseCode;
             /* No more pending action */
             global_vars->readerAction = IFDH_SSCP_ACTION_IDLE;
             /* No need to wakeup the SSCP thread, let its timeout expire */
