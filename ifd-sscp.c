@@ -11,7 +11,7 @@
 
 const char *Name = "libifd-sscp.so";
 
-#define TRANSMIT_TIMEOUT 3000
+#define TRANSMIT_TIMEOUT 1000
 
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,	LPSTR Device, DWORD Channel)
 {

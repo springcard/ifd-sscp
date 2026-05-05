@@ -19,7 +19,7 @@
 
 #include "sscp-host/inc/sscp-host.h"
 
-#define IFDH_SSCP_DEFAULT_ADDRESS 0x00
+#define IFDH_SSCP_DEFAULT_ADDRESS 0x01
 #define IFDH_SSCP_DEFAULT_BITRATE 38400
 #define IFDH_SSCP_AUTH_KEY_LENGTH 16
 
