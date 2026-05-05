@@ -17,7 +17,7 @@
 #include <ifdhandler.h>
 #include <errno.h>
 
-#include "sscp-host/inc/sscp-host.h"
+#include <sscp-host.h>
 
 #define IFDH_SSCP_DEFAULT_ADDRESS 0x01
 #define IFDH_SSCP_DEFAULT_BITRATE 38400
