@@ -154,6 +154,21 @@ RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag, DWORD Length, PUCHAR Valu
     return IFD_ERROR_TAG;
 }
 
+RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol, UCHAR Flags,
+                                        UCHAR PTS1, UCHAR PTS2, UCHAR PTS3)
+{
+    IFDH_LOG_INFO("IFDHSetProtocolParameters(Lun=%08X, Protocol=%lu, Flags=%02X)",
+                  Lun, Protocol, Flags);
+
+    (void)PTS1;
+    (void)PTS2;
+    (void)PTS3;
+    (void)Protocol;
+
+    /* SSCP exchanges full APDUs with the NFC reader; there is no ISO PTS to perform here. */
+    return IFD_SUCCESS;
+}
+
 RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
 {
     IFDH_LOG_INFO("IFDHPowerICC(Lun=%08X, Action=%lu)", Lun, Action);
