@@ -102,7 +102,7 @@ BOOL IFDHParseDeviceParameters(LPSTR Device, char **parsedDevice, BYTE *address,
     *hasAuthKey = FALSE;
     memset(authKey, 0, IFDH_SSCP_AUTH_KEY_LENGTH);
 
-    parameters = strchr(copy, ';');
+    parameters = strchr(copy, ':');
     if (parameters != NULL)
     {
         *parameters = '\0';
@@ -115,7 +115,7 @@ BOOL IFDHParseDeviceParameters(LPSTR Device, char **parsedDevice, BYTE *address,
     token = parameters;
     while (token != NULL)
     {
-        char *next = strchr(token, ';');
+        char *next = strchr(token, ':');
         char *separator;
         const char *name;
         const char *value;
