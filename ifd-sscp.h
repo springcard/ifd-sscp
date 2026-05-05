@@ -19,7 +19,11 @@
 
 #include "sscp-host/inc/sscp-host.h"
 
-BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address);
+#define IFDH_SSCP_DEFAULT_ADDRESS 0x00
+#define IFDH_SSCP_DEFAULT_BITRATE 38400
+#define IFDH_SSCP_AUTH_KEY_LENGTH 16
+
+BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYTE AuthKey[IFDH_SSCP_AUTH_KEY_LENGTH]);
 BOOL IFDHDestroy(DWORD Lun);
 
 BOOL IFDHIsReaderOnline(DWORD Lun);
@@ -57,6 +61,9 @@ typedef struct
     pthread_event_t responseEvent;
     char *device;
     BYTE address;
+    DWORD bitrate;
+    BOOL hasAuthKey;
+    BYTE authKey[IFDH_SSCP_AUTH_KEY_LENGTH];
     SSCP_CTX_ST *sscp_ctx;
     BOOL running;
     BYTE readerAction;

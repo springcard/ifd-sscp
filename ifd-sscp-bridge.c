@@ -157,14 +157,14 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
     memset(&vars->readerState, 0, sizeof(vars->readerState));
 
     /* Try to open the reader */
-    rc = SSCP_Open(vars->sscp_ctx, vars->device, 38400, 0);
+    rc = SSCP_Open(vars->sscp_ctx, vars->device, vars->bitrate, 0);
     if (rc != SSCP_SUCCESS)
     {
-        printf("SSCP_Open(%s) failed (err. %d)\n", vars->device, rc);
+        printf("SSCP_Open(%s, %lu) failed (err. %d)\n", vars->device, vars->bitrate, rc);
         return FALSE;
     }
 
-	rc = SSCP_SetAddress(vars->sscp_ctx, 0x01); /* RS485 */
+	rc = SSCP_SetAddress(vars->sscp_ctx, vars->address);
 	if (rc)
 	{
 		printf("SSCP_SetAddress(%02X) failed (err. %d)\n", vars->address, rc);
@@ -172,7 +172,7 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
         return FALSE;
 	}
 
-	rc = SSCP_Authenticate(vars->sscp_ctx, NULL);
+	rc = SSCP_Authenticate(vars->sscp_ctx, vars->hasAuthKey ? vars->authKey : NULL);
 	if (rc)
 	{
 		printf("SSCP_Authenticate failed (err. %d)\n", rc);
@@ -220,10 +220,21 @@ static BOOL IFDHOpen(IFDH_SSCP_DATA_ST *vars)
     return TRUE;
 }
 
-BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address)
+BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYTE AuthKey[IFDH_SSCP_AUTH_KEY_LENGTH])
 {
+    BOOL mutexCreated = FALSE;
+    BOOL statusEventCreated = FALSE;
+    BOOL actionEventCreated = FALSE;
+    BOOL responseEventCreated = FALSE;
+
     SSCP_DEBUG_SERIAL = TRUE;
     SSCP_DEBUG_EXCHANGE = TRUE;
+
+    if ((Device == NULL) || (Device[0] == '\0'))
+    {
+        printf("%s:Invalid device\n", Name);
+        return FALSE;
+    }
 
     if (global_vars != NULL)
     {
@@ -243,30 +254,55 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address)
     {
         printf("%s:Alloc context failed\n", Name);
         free(global_vars);
+        global_vars = NULL;
         return FALSE;
     }
 
     /* Initialize the variables */
     global_vars->address = Address;
+    global_vars->bitrate = (Bitrate != 0) ? Bitrate : IFDH_SSCP_DEFAULT_BITRATE;
+    if (AuthKey != NULL)
+    {
+        memcpy(global_vars->authKey, AuthKey, IFDH_SSCP_AUTH_KEY_LENGTH);
+        global_vars->hasAuthKey = TRUE;
+    }
     global_vars->device = strdup(Device);
+    if (global_vars->device == NULL)
+    {
+        printf("%s:Alloc device failed\n", Name);
+        goto failed;
+    }
     if (!CreateMutex(&global_vars->mutex))
     {
         printf("%s:Create mutex failed\n", Name);
         goto failed;
     }
-    if (!CreateEvent(&global_vars->statusEvent) || !CreateEvent(&global_vars->actionEvent) || !CreateEvent(&global_vars->responseEvent))
+    mutexCreated = TRUE;
+    if (!CreateEvent(&global_vars->statusEvent))
     {
         printf("%s:Create event failed\n", Name);
         goto failed;
     }
+    statusEventCreated = TRUE;
+    if (!CreateEvent(&global_vars->actionEvent))
+    {
+        printf("%s:Create event failed\n", Name);
+        goto failed;
+    }
+    actionEventCreated = TRUE;
+    if (!CreateEvent(&global_vars->responseEvent))
+    {
+        printf("%s:Create event failed\n", Name);
+        goto failed;
+    }
+    responseEventCreated = TRUE;
     global_vars->running = TRUE;
 
     /* Open the device */
     if (!IFDHOpen(global_vars))
     {
-        printf("%s:Open device %s:%d failed\n", Name, Device, Address);
-        free(global_vars);
-        return FALSE;       
+        printf("%s:Open device %s:%02X at %lu failed\n", Name, Device, Address, global_vars->bitrate);
+        goto failed;
     }
 
     /* Create the thread */
@@ -280,16 +316,21 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address)
 
 failed:
     /* Try to de-allocated correctly */
-    DestroyEvent(&global_vars->responseEvent);
-    DestroyEvent(&global_vars->actionEvent);
-    DestroyEvent(&global_vars->statusEvent);
-    DestroyMutex(&global_vars->mutex);
+    if (responseEventCreated)
+        DestroyEvent(&global_vars->responseEvent);
+    if (actionEventCreated)
+        DestroyEvent(&global_vars->actionEvent);
+    if (statusEventCreated)
+        DestroyEvent(&global_vars->statusEvent);
+    if (mutexCreated)
+        DestroyMutex(&global_vars->mutex);
     if (global_vars->device != NULL)
         free(global_vars->device);
     if (global_vars->sscp_ctx != NULL)
         SSCP_Free(global_vars->sscp_ctx);
     free(global_vars);
-    return FALSE;    
+    global_vars = NULL;
+    return FALSE;
 }
 
 BOOL IFDHDestroy(DWORD Lun)

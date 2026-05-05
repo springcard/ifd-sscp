@@ -7,6 +7,7 @@
 #include <ifdhandler.h>
 
 #include "ifd-sscp.h"
+#include "ifd-sscp_i.h"
 
 const char *Name = "libifd-sscp.so";
 
@@ -14,9 +15,24 @@ const char *Name = "libifd-sscp.so";
 
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,	LPSTR Device, DWORD Channel)
 {
-    BYTE Address = 0;
-    if (!IFDHCreate(Lun, Device, Address))
+    char *parsedDevice = NULL;
+    BYTE address = IFDH_SSCP_DEFAULT_ADDRESS;
+    DWORD bitrate = IFDH_SSCP_DEFAULT_BITRATE;
+    BYTE authKey[IFDH_SSCP_AUTH_KEY_LENGTH];
+    BOOL hasAuthKey = FALSE;
+
+    (void) Channel;
+
+    if (!IFDHParseDeviceParameters(Device, &parsedDevice, &address, &bitrate, authKey, &hasAuthKey))
         return IFD_NO_SUCH_DEVICE;
+
+    if (!IFDHCreate(Lun, parsedDevice, address, bitrate, hasAuthKey ? authKey : NULL))
+    {
+        free(parsedDevice);
+        return IFD_NO_SUCH_DEVICE;
+    }
+
+    free(parsedDevice);
     return IFD_SUCCESS;
 }
 

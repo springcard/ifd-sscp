@@ -13,7 +13,7 @@ include_directories(${PROJECT_SOURCE_DIR}/sscp-host/inc)
 
 file(GLOB SSCP_HOST_SOURCES "${PROJECT_SOURCE_DIR}/sscp-host/src/*.c")
 
-add_library(${LIB_NAME} SHARED ifd-sscp.c ifd-sscp-bridge.c ifd-sscp-ipc.c ${SSCP_HOST_SOURCES})
+add_library(${LIB_NAME} SHARED ifd-sscp.c ifd-sscp-bridge.c ifd-sscp-ipc.c ifd-sscp-utils.c ${SSCP_HOST_SOURCES})
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME "ifd-sscp")
 
 target_link_libraries(${LIB_NAME} PRIVATE Threads::Threads)
