@@ -130,7 +130,33 @@ static void *IFDH_SSCP_Proc(void *arg)
                         }
                         else if (rc == 2)
                         {
-                            IFDH_LOG_INFO("Tracking: not supported by the reader");
+                            if (!instance->cardState.apduPassed)
+                            {
+                                IFDH_LOG_INFO("Tracking: falling back to polling");
+                                rc = SSCP_ScanNFC(instance->sscp_ctx, &instance->cardState.protocol, instance->cardState.uid, sizeof(instance->cardState.uid), &instance->cardState.uidLength, instance->cardState.ats, sizeof(instance->cardState.ats), &instance->cardState.atsLength);
+                                if (rc == SSCP_SUCCESS)
+                                {
+                                    if (instance->cardState.protocol)
+                                    {
+                                        /* Card still present */
+                                    }
+                                    else
+                                    {
+                                        /* Card not present */
+                                        memset(&instance->cardState, 0, sizeof(instance->cardState));
+                                        SetEvent(&instance->statusEvent;
+                                    }
+                                }
+                                else
+                                {
+                                    IFDH_LOG_CRITICAL("Polling: reader error %d", rc);
+                                    instance->readerState.ready = FALSE;
+                                }
+                            }
+                            else
+                            {
+                                IFDH_LOG_INFO("Tracking: not supported by the reader when card is active and APDU passed");
+                            }
                         }
                         else
                         {
@@ -159,7 +185,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                             else
                             {
                                 IFDH_LOG_INFO("Polling: card inserted, but protocol=0");
-                                instance->cardState.present = FALSE;
+                                memset(&instance->cardState, 0, sizeof(instance->cardState));
                             }
                             /* Status has changed! */
                             if (oldCardPresent != instance->cardState.present)
@@ -181,6 +207,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     /* Do nothing, let the client retrieve its response */
                 break;
                 case IFDH_SSCP_ACTION_TRANSMIT :
+                    instance->cardState.apduPassed = TRUE;
                     rc = SSCP_TransceiveNFC(instance->sscp_ctx, instance->x.transmit.txBuffer, instance->x.transmit.txLength, instance->x.transmit.rxBuffer, instance->x.transmit.rxLengthMax, &instance->x.transmit.rxLengthAct);
                     if (rc == SSCP_SUCCESS)
                     {

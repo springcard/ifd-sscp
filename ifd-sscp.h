@@ -101,6 +101,7 @@ typedef struct
         BYTE uidLength;
         BYTE ats[16];
         BYTE atsLength;
+        BOOL apduPassed;
     } cardState;
 
     union
