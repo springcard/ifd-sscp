@@ -16,7 +16,7 @@ typedef struct _instance_list_st
 
 static instance_list_st *instance_list = NULL;
 
-static IFDH_SSCP_INSTANCE_ST *getInstance(DWORD Lun)
+static IFDH_SSCP_INSTANCE_ST *getInstance(DWORD Lun, BOOL silent)
 {
     instance_list_st *current = instance_list;
     while (current != NULL)
@@ -25,6 +25,7 @@ static IFDH_SSCP_INSTANCE_ST *getInstance(DWORD Lun)
             return &current->instance;
         current = current->next;
     }
+    if (!silent)
     IFDH_LOG_CRITICAL("Instance with Lun %lu not found", Lun);
     return NULL;
 }
@@ -217,6 +218,8 @@ static void *IFDH_SSCP_Proc(void *arg)
         }
         else
         {
+            IFDH_LOG_INFO("Device is not open and/or not available, trying to connect...");
+
             /* Close the device if it's open */
             if (instance->readerState.open)
             {
@@ -314,6 +317,8 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
         goto failed;
     }
 
+    /* Let the thread run quickly */
+    SetEvent(&instance->actionEvent);
     return TRUE;
 
 failed:
@@ -336,9 +341,15 @@ failed:
 
 BOOL IFDHDestroy(DWORD Lun)
 {
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, TRUE);
+
     if (instance == NULL)
+    {
+        IFDH_LOG_INFO("Instance with Lun %lu not found, nothing to destroy", Lun);
         return FALSE;
+    }
+
+    IFDH_LOG_INFO("Destroying instance with Lun %lu", Lun);
 
     /* Say we want to exit */
     instance->running = FALSE;
@@ -375,7 +386,7 @@ BOOL IFDHDestroy(DWORD Lun)
 BOOL IFDHIsReaderOnline(DWORD Lun)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     Lock(instance);
@@ -388,7 +399,7 @@ BOOL IFDHIsReaderOnline(DWORD Lun)
 BOOL IFDHIsCardPresent(DWORD Lun)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     Lock(instance);
@@ -401,7 +412,7 @@ BOOL IFDHIsCardPresent(DWORD Lun)
 
 BOOL IFDHWaitStatusChange(DWORD Lun, int Timeout)
 {
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     return WaitEvent(&instance->statusEvent, Timeout);
@@ -409,7 +420,7 @@ BOOL IFDHWaitStatusChange(DWORD Lun, int Timeout)
 
 BOOL IFDHKillStatusChange(DWORD Lun)
 {
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     return SetEvent(&instance->statusEvent);
@@ -419,7 +430,7 @@ BOOL IFDHGetAtr(DWORD Lun, PUCHAR Atr, PDWORD AtrLength)
 {
     static const BYTE DEFAULT_ATR[] = { 0x3B, 0x88, 0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x51, 0x93, 0x00, 0xCB };
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if ((Atr == NULL) || (AtrLength == NULL))
@@ -441,7 +452,7 @@ BOOL IFDHGetAtr(DWORD Lun, PUCHAR Atr, PDWORD AtrLength)
 BOOL IFDHPowerUp(DWORD Lun)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (Lock(instance))
@@ -461,7 +472,7 @@ BOOL IFDHPowerUp(DWORD Lun)
 BOOL IFDHPowerDown(DWORD Lun)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (Lock(instance))
@@ -483,7 +494,7 @@ BOOL IFDHPowerDown(DWORD Lun)
 BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (Lock(instance))
@@ -512,7 +523,7 @@ BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuff
 BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (!WaitEvent(&instance->responseEvent, Timeout))
@@ -536,7 +547,7 @@ BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength)
 BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (Lock(instance))
@@ -566,7 +577,7 @@ BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLen
 BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *ControlResponse)
 {
     BOOL rc = FALSE;
-    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun);
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
     if (instance == NULL)
         return FALSE;
     if (!WaitEvent(&instance->responseEvent, Timeout))
@@ -599,6 +610,8 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
 
     memset(&instance->readerState, 0, sizeof(instance->readerState));
 
+    IFDH_LOG_INFO("Opening device %s, bitrate %lu", instance->device, instance->bitrate);
+
     /* Try to open the reader */
     rc = SSCP_Open(instance->sscp_ctx, instance->device, instance->bitrate, 0);
     if (rc != SSCP_SUCCESS)
@@ -606,6 +619,8 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
         IFDH_LOG_CRITICAL("SSCP_Open(%s, %lu) failed (err. %d)", instance->device, instance->bitrate, rc);
         return FALSE;
     }
+
+    IFDH_LOG_INFO("On device %s, using address %02X", instance->device, instance->address);
 
     /* Select the target address locally; SSCP_SetAddress writes a new address to the reader. */
 	rc = SSCP_SelectAddress(instance->sscp_ctx, instance->address);
@@ -670,6 +685,18 @@ static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance)
     if (instance == NULL)
         return FALSE;
 
-    SSCP_Close(instance->sscp_ctx);       
+    if (instance->sscp_ctx == NULL)
+    {
+        IFDH_LOG_CRITICAL("Instance does not have a valid SSCP context");
+    }
+    else
+    {
+        IFDH_LOG_INFO("Closing device %s", instance->device);
+        SSCP_Close(instance->sscp_ctx);
+    }
+
+    instance->readerState.open = FALSE;
+    instance->readerState.available = FALSE;
+
     return TRUE;
 }
