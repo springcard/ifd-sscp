@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define WIN32_TYPES_DEFINED
 #include <PCSC/wintypes.h>
 
 #include <sys/types.h>
