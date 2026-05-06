@@ -55,6 +55,7 @@ RESPONSECODE IFDHCreateChannelByName(DWORD Lun, LPSTR Device)
 RESPONSECODE IFDHCloseChannel(DWORD Lun)
 {
     IFDH_LOG_INFO("IFDHCloseChannel(Lun=%08X)", Lun);
+    IFDHDestroy(Lun);
     return IFD_SUCCESS;
 }
 
