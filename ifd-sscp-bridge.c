@@ -184,7 +184,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                             }
                             else
                             {
-                                IFDH_LOG_INFO("Polling: card inserted, but protocol=0");
+                                IFDH_LOG_INFO("Polling: card absent");
                                 memset(&instance->cardState, 0, sizeof(instance->cardState));
                             }
                             /* Status has changed! */
