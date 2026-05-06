@@ -83,7 +83,13 @@ static void *IFDH_SSCP_Proc(void *arg)
 
     while (1)
     {
-        if ((instance->readerState.open) && (instance->readerState.available))
+        if (!instance->inited)
+        {
+            IFDH_LOG_CRITICAL("Driver not initialized");
+            break;
+        }
+
+        if ((instance->readerState.open) && (instance->readerState.ready))
         {
             (void) WaitEvent(&instance->actionEvent, 150); /* Default polling interval, don't care for result */
         }
@@ -99,7 +105,7 @@ static void *IFDH_SSCP_Proc(void *arg)
         }
 
         Lock(instance);
-        if ((instance->readerState.open) && (instance->readerState.available))
+        if ((instance->readerState.open) && (instance->readerState.ready))
         {
             switch (instance->readerAction)
             {
@@ -130,7 +136,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                         {
                             IFDH_LOG_CRITICAL("Tracking: reader error %d", rc);
                             /* We have lost the reader? */
-                            instance->readerState.available = FALSE;
+                            instance->readerState.ready = FALSE;
                         }
                     }
                     else
@@ -158,7 +164,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                         else
                         {
                             IFDH_LOG_CRITICAL("Polling: reader error %d", rc);
-                            instance->readerState.available = FALSE;
+                            instance->readerState.ready = FALSE;
                         }
                     }
                 break;
@@ -190,7 +196,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     {
                         /* We have lost the reader? */
                         IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
-                        instance->readerState.available = FALSE;
+                        instance->readerState.ready = FALSE;
                     }
                     SetEvent(&instance->responseEvent);
                 break;
@@ -206,7 +212,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     else
                     {
                         IFDH_LOG_CRITICAL("Disconnect: reader error %d", rc);
-                        instance->readerState.available = FALSE;
+                        instance->readerState.ready = FALSE;
                     }
                 break;
 
@@ -308,7 +314,9 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
         goto failed;
     }
     responseEventCreated = TRUE;
-    instance->running = TRUE;
+    
+    instance->inited = TRUE;
+    instance->running = TRUE;    
 
     /* Create the thread */
     if (pthread_create(&instance->thread_id, NULL, IFDH_SSCP_Proc, instance) != 0)
@@ -390,7 +398,7 @@ BOOL IFDHIsReaderOnline(DWORD Lun)
     if (instance == NULL)
         return FALSE;
     Lock(instance);
-    if (instance->readerState.available)
+    if (instance->readerState.inited)
         rc = TRUE;
     Unlock(instance);
     return rc;
@@ -403,7 +411,7 @@ BOOL IFDHIsCardPresent(DWORD Lun)
     if (instance == NULL)
         return FALSE;
     Lock(instance);
-    if (instance->readerState.available)
+    if (instance->readerState.ready)
         if (instance->cardState.present)
             rc = TRUE;
     Unlock(instance);
@@ -437,7 +445,7 @@ BOOL IFDHGetAtr(DWORD Lun, PUCHAR Atr, PDWORD AtrLength)
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.available) && (instance->cardState.present))
+        if ((instance->readerState.ready) && (instance->cardState.present))
         {
             if (*AtrLength > sizeof(DEFAULT_ATR))
                 *AtrLength = sizeof(DEFAULT_ATR);
@@ -457,7 +465,7 @@ BOOL IFDHPowerUp(DWORD Lun)
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.available) && (instance->cardState.present))
+        if ((instance->readerState.ready) && (instance->cardState.present))
         {
             /* Remember the card is active */
             instance->cardState.active = TRUE;
@@ -477,7 +485,7 @@ BOOL IFDHPowerDown(DWORD Lun)
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.available) && (instance->cardState.present) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
+        if ((instance->readerState.ready) && (instance->cardState.present) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
         {
             /* Release the card */
             instance->cardState.active = FALSE;
@@ -499,7 +507,7 @@ BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuff
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.available) && (instance->cardState.present) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
+        if ((instance->readerState.ready) && (instance->cardState.present) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
         {
             /* Prevent further polling */
             instance->cardState.active = TRUE;
@@ -552,7 +560,7 @@ BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLen
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.available) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
+        if ((instance->readerState.ready) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
         {
             /* Store the buffer */
             instance->x.control.controlCode = ControlCode;
@@ -676,7 +684,7 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
     IFDH_LOG_INFO("SSCP_GetReaderType OK, readerType=%s", instance->readerInfo.readerType);
 
     instance->readerState.open = TRUE;
-    instance->readerState.available = TRUE;
+    instance->readerState.ready = TRUE;
     return TRUE;
 }
 
@@ -684,6 +692,8 @@ static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance)
 {
     if (instance == NULL)
         return FALSE;
+
+    instance->readerState.ready = FALSE;
 
     if (instance->sscp_ctx == NULL)
     {
@@ -696,7 +706,5 @@ static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance)
     }
 
     instance->readerState.open = FALSE;
-    instance->readerState.available = FALSE;
-
     return TRUE;
 }

@@ -76,16 +76,17 @@ typedef struct
 
     struct
     {
+        BOOL inited;
         BOOL open;
-        BOOL available;
+        BOOL ready;
     } readerState;    
 
     struct
     {
-		BYTE version;
-		BYTE baudrate;
-		BYTE address;
-		WORD voltage;
+        BYTE version;
+        BYTE baudrate;
+        BYTE address;
+        WORD voltage;
         char serialNumber[16+1];
         char readerType[16+1];
     } readerInfo;    
