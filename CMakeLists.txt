@@ -36,7 +36,7 @@ add_library(sscp-host STATIC ${SSCP_HOST_SOURCES})
 target_include_directories(sscp-host PUBLIC "${sscp_host_SOURCE_DIR}/inc")
 set_target_properties(sscp-host PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-add_library(${LIB_NAME} SHARED ifd-sscp.c ifd-sscp-data.c ifd-sscp-bridge.c ifd-sscp-ipc.c ifd-sscp-utils.c ifd-sscp-control.c ifd-sscp-debug.c)
+add_library(${LIB_NAME} SHARED ifd-sscp.c ifd-sscp-bridge.c ifd-sscp-ipc.c ifd-sscp-utils.c ifd-sscp-control.c ifd-sscp-debug.c)
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME "ifd-sscp")
 
 target_include_directories(${LIB_NAME} PRIVATE /usr/include/PCSC)
