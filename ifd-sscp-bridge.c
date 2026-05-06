@@ -6,7 +6,7 @@ extern BOOL SSCP_DEBUG_EXCHANGE;
 
 typedef struct _instance_list_st
 {    
-    _instance_list_st *next;
+    struct _instance_list_st *next;
     DWORD Lun;
     IFDH_SSCP_INSTANCE_ST instance;
 } instance_list_st;
