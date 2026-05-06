@@ -122,7 +122,7 @@ typedef struct
         } control;
     } x;
     
-} IFDH_SSCP_DATA_ST;
+} IFDH_SSCP_INSTANCE_ST;
 
 BOOL CreateMutex(pthread_mutex_t *mutex);
 void DestroyMutex(pthread_mutex_t *mutex);
@@ -131,8 +131,8 @@ void DestroyEvent(pthread_event_t *event);
 BOOL SetEvent(pthread_event_t *event);
 BOOL ClearEvent(pthread_event_t *event);
 BOOL WaitEvent(pthread_event_t *event, int timeout);
-BOOL Lock(IFDH_SSCP_DATA_ST *vars);
-void Unlock(IFDH_SSCP_DATA_ST *vars);
+BOOL Lock(IFDH_SSCP_INSTANCE_ST *instance);
+void Unlock(IFDH_SSCP_INSTANCE_ST *instance);
 
 extern const char *Name;
 

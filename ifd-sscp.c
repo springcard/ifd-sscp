@@ -24,6 +24,9 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,	LPSTR Device, DWORD 
 
     (void) Channel;
 
+    if (Device == NULL)
+        return IFD_NO_SUCH_DEVICE;
+
     if (!IFDHParseDeviceParameters(Device, &parsedDevice, &address, &bitrate, authKey, &hasAuthKey))
         return IFD_NO_SUCH_DEVICE;
 

@@ -86,17 +86,17 @@ BOOL WaitEvent(pthread_event_t *event, int timeout)
     return TRUE; /* Got event */
 }
 
-BOOL Lock(IFDH_SSCP_DATA_ST *vars)
+BOOL Lock(IFDH_SSCP_INSTANCE_ST *instance)
 {
-    if (vars == NULL)
+    if (instance == NULL)
         return FALSE;
-    pthread_mutex_lock(&vars->mutex);
+    pthread_mutex_lock(&instance->mutex);
     return TRUE;
 }
 
-void Unlock(IFDH_SSCP_DATA_ST *vars)
+void Unlock(IFDH_SSCP_INSTANCE_ST *instance)
 {
-    if (vars == NULL)
+    if (instance == NULL)
         return;
-    pthread_mutex_unlock(&vars->mutex);
+    pthread_mutex_unlock(&instance->mutex);
 }
