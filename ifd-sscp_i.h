@@ -8,4 +8,8 @@ BOOL IFDHParseDeviceParameters(LPSTR Device, char **parsedDevice, BYTE *address,
 
 RESPONSECODE IFDH_SSCP_Control(IFDH_SSCP_INSTANCE_ST *instance);
 
+BOOL IFDH_SSCP_SetDefaultLEDs(IFDH_SSCP_INSTANCE_ST *instance);
+
+DWORD IFDH_SSCP_Now(void);
+
 #endif

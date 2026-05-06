@@ -110,6 +110,26 @@ static void *IFDH_SSCP_Proc(void *arg)
             switch (instance->readerAction)
             {
                 case IFDH_SSCP_ACTION_IDLE :
+
+                    if ((instance->readerState.timerOutput != 0) && (instance->readerState.timerOutput < IFDH_SSCP_Now()))
+                    {
+                        /* Restore default LEDs */
+                        instance->readerState.timerOutput = 0; /* No more timer */
+                        if (!IFDH_SSCP_SetDefaultLEDs(instance))
+                        {
+                            /* Reader lost */
+                            instance->readerState.ready = FALSE;
+                            if (instance->cardState.present)
+                            {
+                                /* We have lost the card in the meantime... */
+                                memset(&instance->cardState, 0, sizeof(instance->cardState));
+                                /* Say we have lost the card */
+                                SetEvent(&instance->statusEvent);
+                            }
+                            continue;
+                        }
+                    }                    
+
                     if ((instance->cardState.present) && (instance->cardState.active))
                     {
                         /* The card is active, we shall not do a polling, but a tracking. Let's track with empty APDUs, in the hope the reader supports it */
@@ -716,6 +736,10 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
 
     instance->readerState.open = TRUE;
     instance->readerState.ready = TRUE;
+
+    /* Set the default LED "soon" */
+    instance->readerState.timerOutput = now_ms() + 0;
+
     return TRUE;
 }
 

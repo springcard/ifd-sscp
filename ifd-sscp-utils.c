@@ -168,3 +168,16 @@ failed:
     free(copy);
     return FALSE;
 }
+
+DWORD IFDH_SSCP_Now(void)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    return (uint32_t)(
+        (ts.tv_sec * 1000u) +
+        (ts.tv_nsec / 1000000u)
+    );
+}
+

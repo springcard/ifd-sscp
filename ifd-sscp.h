@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <ifdhandler.h>
 #include <errno.h>
+#include <time.h>
 
 #include <sscp-host.h>
 #include "ifd-sscp-debug.h"
@@ -78,6 +79,7 @@ typedef struct
     {
         BOOL open;
         BOOL ready;
+        DWORD timerOutput;
     } readerState;    
 
     BYTE readerAction;    
