@@ -39,6 +39,8 @@ RESPONSECODE IFDH_SSCP_Control(IFDH_SSCP_INSTANCE_ST *instance)
                 return IFD_COMMUNICATION_ERROR;
             }
             rc = SSCP_Outputs(instance->sscp_ctx, txBuffer[0], txBuffer[1], txBuffer[2]);
+            if (rc != SSCP_SUCCESS)
+                instance->readerState.ready = FALSE; /* We have lost the reader? */
             return ControlResult(rc, "SSCP_Outputs");
 
         case IFDH_SSCP_CONTROL_OUTPUTS_RGB:
@@ -48,6 +50,8 @@ RESPONSECODE IFDH_SSCP_Control(IFDH_SSCP_INSTANCE_ST *instance)
                 return IFD_COMMUNICATION_ERROR;
             }
             rc = SSCP_OutputsRGB(instance->sscp_ctx, ReadRgb(txBuffer), txBuffer[3], txBuffer[4]);
+            if (rc != SSCP_SUCCESS)
+                instance->readerState.ready = FALSE; /* We have lost the reader? */
             return ControlResult(rc, "SSCP_OutputsRGB");
 
         case IFDH_SSCP_CONTROL_EXTERNAL_LED_RGB:
@@ -57,6 +61,8 @@ RESPONSECODE IFDH_SSCP_Control(IFDH_SSCP_INSTANCE_ST *instance)
                 return IFD_COMMUNICATION_ERROR;
             }
             rc = SSCP_ExternalLEDRGB(instance->sscp_ctx, ReadRgb(txBuffer), ReadRgb(&txBuffer[3]), ReadRgb(&txBuffer[6]));
+            if (rc != SSCP_SUCCESS)
+                instance->readerState.ready = FALSE; /* We have lost the reader? */
             return ControlResult(rc, "SSCP_ExternalLEDRGB");
 
         default:

@@ -137,6 +137,10 @@ static void *IFDH_SSCP_Proc(void *arg)
                             IFDH_LOG_CRITICAL("Tracking: reader error %d", rc);
                             /* We have lost the reader? */
                             instance->readerState.ready = FALSE;
+                            /* We have lost the card in the meantime anyhow... */
+                            memset(&instance->cardState, 0, sizeof(instance->cardState));
+                            /* Say we have lost the card */
+                            SetEvent(&instance->statusEvent);
                         }
                     }
                     else
