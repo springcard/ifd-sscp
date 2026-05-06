@@ -398,8 +398,8 @@ BOOL IFDHIsReaderOnline(DWORD Lun)
     if (instance == NULL)
         return FALSE;
     Lock(instance);
-    if (instance->readerState.inited)
-        rc = TRUE;
+    if (instance->inited)
+        rc = TRUE; /* This is not real, since we should check readerState.ready, but pcscd does not accept the reader to be offline */
     Unlock(instance);
     return rc;
 }

@@ -72,14 +72,15 @@ typedef struct
     BYTE authKey[IFDH_SSCP_AUTH_KEY_LENGTH];
     SSCP_CTX_ST *sscp_ctx;
     BOOL running;
-    BYTE readerAction;
+    BOOL inited;    
 
     struct
     {
-        BOOL inited;
         BOOL open;
         BOOL ready;
     } readerState;    
+
+    BYTE readerAction;    
 
     struct
     {
