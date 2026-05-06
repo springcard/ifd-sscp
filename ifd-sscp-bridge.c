@@ -738,7 +738,7 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
     instance->readerState.ready = TRUE;
 
     /* Set the default LED "soon" */
-    instance->readerState.timerOutput = now_ms() + 0;
+    instance->readerState.timerOutput = IFDH_SSCP_Now() + 0;
 
     return TRUE;
 }
