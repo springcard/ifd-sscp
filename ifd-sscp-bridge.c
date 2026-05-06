@@ -226,7 +226,7 @@ static void *IFDH_SSCP_Proc(void *arg)
             /* Open the device */
             if (!IFDHOpen(instance))
             {
-                IFDH_LOG_CRITICAL("Open device %s:%02X at %lu failed", Device, Address, instance->bitrate);
+                IFDH_LOG_CRITICAL("Open device %s:%02X at %lu failed", instance->device, instance->address, instance->bitrate);
             }
         }
         Unlock(instance);
