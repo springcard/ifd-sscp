@@ -144,7 +144,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                                     {
                                         /* Card not present */
                                         memset(&instance->cardState, 0, sizeof(instance->cardState));
-                                        SetEvent(&instance->statusEvent;
+                                        SetEvent(&instance->statusEvent);
                                     }
                                 }
                                 else
