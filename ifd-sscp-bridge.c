@@ -1,6 +1,9 @@
 #include "ifd-sscp.h"
 #include "ifd-sscp_i.h"
 
+static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance);
+static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance);
+
 extern BOOL SSCP_DEBUG_SERIAL;
 extern BOOL SSCP_DEBUG_EXCHANGE;
 
@@ -79,7 +82,14 @@ static void *IFDH_SSCP_Proc(void *arg)
 
     while (1)
     {
-        (void) WaitEvent(&instance->actionEvent, 150); /* Default polling interval, don't care for result */
+        if ((instance->readerState.open) && (instance->readerState.available))
+        {
+            (void) WaitEvent(&instance->actionEvent, 150); /* Default polling interval, don't care for result */
+        }
+        else
+        {
+            (void) WaitEvent(&instance->actionEvent, 1000); /* Longer polling interval for reconnection */
+        }
 
         if (!instance->running)
         {
@@ -205,85 +215,24 @@ static void *IFDH_SSCP_Proc(void *arg)
                     break;
             }
         }
+        else
+        {
+            /* Close the device if it's open */
+            if (instance->readerState.open)
+            {
+                IFDHClose(instance);
+            }
+
+            /* Open the device */
+            if (!IFDHOpen(instance))
+            {
+                IFDH_LOG_CRITICAL("Open device %s:%02X at %lu failed", Device, Address, instance->bitrate);
+            }
+        }
         Unlock(instance);
     }
 
     IFDH_LOG_INFO("Thread terminating");
-}
-
-static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
-{
-    LONG rc;
-
-    if (instance == NULL)
-        return FALSE;
-
-    memset(&instance->readerState, 0, sizeof(instance->readerState));
-
-    /* Try to open the reader */
-    rc = SSCP_Open(instance->sscp_ctx, instance->device, instance->bitrate, 0);
-    if (rc != SSCP_SUCCESS)
-    {
-        IFDH_LOG_CRITICAL("SSCP_Open(%s, %lu) failed (err. %d)", instance->device, instance->bitrate, rc);
-        return FALSE;
-    }
-
-    /* Select the target address locally; SSCP_SetAddress writes a new address to the reader. */
-	rc = SSCP_SelectAddress(instance->sscp_ctx, instance->address);
-	if (rc)
-	{
-		IFDH_LOG_CRITICAL("SSCP_SelectAddress(%02X) failed (err. %d)", instance->address, rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-	}
-
-	rc = SSCP_Authenticate(instance->sscp_ctx, instance->hasAuthKey ? instance->authKey : NULL);
-	if (rc)
-	{
-		IFDH_LOG_CRITICAL("SSCP_Authenticate failed (err. %d)", rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-	}
-
-	rc = SSCP_Outputs(instance->sscp_ctx, 0x02, 0x0A, 0x02);
-	if (rc)
-	{
-		IFDH_LOG_CRITICAL("SSCP_Outputs failed (err. %d)", rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-	}
-
-    rc = SSCP_GetInfos(instance->sscp_ctx, &instance->readerInfo.version, &instance->readerInfo.baudrate, &instance->readerInfo.address, &instance->readerInfo.voltage);
-    if (rc)
-    {
-        IFDH_LOG_CRITICAL("SSCP_GetInfos failed (err. %d)", rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-    }
-    IFDH_LOG_INFO("SSCP_GetInfos OK, version=%02X, baudrate=%02X, address=%02X, voltage=%04X",
-                  instance->readerInfo.version, instance->readerInfo.baudrate, instance->readerInfo.address, instance->readerInfo.voltage);
-
-    rc = SSCP_GetSerialNumber(instance->sscp_ctx, instance->readerInfo.serialNumber, sizeof(instance->readerInfo.serialNumber));
-    if (rc)
-    {
-        IFDH_LOG_CRITICAL("SSCP_GetSerialNumber failed (err. %d)", rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-    }
-    IFDH_LOG_INFO("SSCP_GetSerialNumber OK, serialNumber=%s", instance->readerInfo.serialNumber);
-
-    rc = SSCP_GetReaderType(instance->sscp_ctx, instance->readerInfo.readerType, sizeof(instance->readerInfo.readerType));
-    if (rc)
-    {
-        IFDH_LOG_CRITICAL("SSCP_GetReaderType failed (err. %d)", rc);
-		SSCP_Close(instance->sscp_ctx);
-        return FALSE;
-    }
-    IFDH_LOG_INFO("SSCP_GetReaderType OK, readerType=%s", instance->readerInfo.readerType);
-
-    instance->readerState.open = TRUE;
-    instance->readerState.available = TRUE;
-    return TRUE;
 }
 
 BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYTE AuthKey[IFDH_SSCP_AUTH_KEY_LENGTH])
@@ -357,13 +306,6 @@ BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYT
     }
     responseEventCreated = TRUE;
     instance->running = TRUE;
-
-    /* Open the device */
-    if (!IFDHOpen(instance))
-    {
-        IFDH_LOG_CRITICAL("Open device %s:%02X at %lu failed", Device, Address, instance->bitrate);
-        goto failed;
-    }
 
     /* Create the thread */
     if (pthread_create(&instance->thread_id, NULL, IFDH_SSCP_Proc, instance) != 0)
@@ -646,4 +588,88 @@ BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *Cont
         Unlock(instance);
     }
     return rc;
+}
+
+static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    LONG rc;
+
+    if (instance == NULL)
+        return FALSE;
+
+    memset(&instance->readerState, 0, sizeof(instance->readerState));
+
+    /* Try to open the reader */
+    rc = SSCP_Open(instance->sscp_ctx, instance->device, instance->bitrate, 0);
+    if (rc != SSCP_SUCCESS)
+    {
+        IFDH_LOG_CRITICAL("SSCP_Open(%s, %lu) failed (err. %d)", instance->device, instance->bitrate, rc);
+        return FALSE;
+    }
+
+    /* Select the target address locally; SSCP_SetAddress writes a new address to the reader. */
+	rc = SSCP_SelectAddress(instance->sscp_ctx, instance->address);
+	if (rc)
+	{
+		IFDH_LOG_CRITICAL("SSCP_SelectAddress(%02X) failed (err. %d)", instance->address, rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+	}
+
+	rc = SSCP_Authenticate(instance->sscp_ctx, instance->hasAuthKey ? instance->authKey : NULL);
+	if (rc)
+	{
+		IFDH_LOG_CRITICAL("SSCP_Authenticate failed (err. %d)", rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+	}
+
+	rc = SSCP_Outputs(instance->sscp_ctx, 0x02, 0x0A, 0x02);
+	if (rc)
+	{
+		IFDH_LOG_CRITICAL("SSCP_Outputs failed (err. %d)", rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+	}
+
+    rc = SSCP_GetInfos(instance->sscp_ctx, &instance->readerInfo.version, &instance->readerInfo.baudrate, &instance->readerInfo.address, &instance->readerInfo.voltage);
+    if (rc)
+    {
+        IFDH_LOG_CRITICAL("SSCP_GetInfos failed (err. %d)", rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+    }
+    IFDH_LOG_INFO("SSCP_GetInfos OK, version=%02X, baudrate=%02X, address=%02X, voltage=%04X",
+                  instance->readerInfo.version, instance->readerInfo.baudrate, instance->readerInfo.address, instance->readerInfo.voltage);
+
+    rc = SSCP_GetSerialNumber(instance->sscp_ctx, instance->readerInfo.serialNumber, sizeof(instance->readerInfo.serialNumber));
+    if (rc)
+    {
+        IFDH_LOG_CRITICAL("SSCP_GetSerialNumber failed (err. %d)", rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+    }
+    IFDH_LOG_INFO("SSCP_GetSerialNumber OK, serialNumber=%s", instance->readerInfo.serialNumber);
+
+    rc = SSCP_GetReaderType(instance->sscp_ctx, instance->readerInfo.readerType, sizeof(instance->readerInfo.readerType));
+    if (rc)
+    {
+        IFDH_LOG_CRITICAL("SSCP_GetReaderType failed (err. %d)", rc);
+		SSCP_Close(instance->sscp_ctx);
+        return FALSE;
+    }
+    IFDH_LOG_INFO("SSCP_GetReaderType OK, readerType=%s", instance->readerInfo.readerType);
+
+    instance->readerState.open = TRUE;
+    instance->readerState.available = TRUE;
+    return TRUE;
+}
+
+static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    if (instance == NULL)
+        return FALSE;
+
+    SSCP_Close(instance->sscp_ctx);       
+    return TRUE;
 }
