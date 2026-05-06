@@ -38,7 +38,7 @@ static IFDH_SSCP_INSTANCE_ST *allocInstance(DWORD Lun)
         }
         current = current->next;
     }
-    instance_list_st *newInstance = (instance_list_st *)malloc(sizeof(instance_list_st));
+    instance_list_st *newInstance = (instance_list_st *)calloc(1, sizeof(instance_list_st));
     if (newInstance == NULL)
     {
         IFDH_LOG_CRITICAL("Failed to allocate memory for new instance");
