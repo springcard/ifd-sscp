@@ -248,6 +248,10 @@ static void *IFDH_SSCP_Proc(void *arg)
                         /* We have lost the reader? */
                         IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
                         instance->readerState.ready = FALSE;
+                        /* We have lost the card in the meantime anyhow... */
+                        memset(&instance->cardState, 0, sizeof(instance->cardState));
+                        /* Say we have lost the card */
+                        SetEvent(&instance->statusEvent);
                     }
                     SetEvent(&instance->responseEvent);
                 break;
@@ -264,6 +268,10 @@ static void *IFDH_SSCP_Proc(void *arg)
                     {
                         IFDH_LOG_CRITICAL("Disconnect: reader error %d", rc);
                         instance->readerState.ready = FALSE;
+                        /* We have lost the card in the meantime anyhow... */
+                        memset(&instance->cardState, 0, sizeof(instance->cardState));
+                        /* Say we have lost the card */
+                        SetEvent(&instance->statusEvent);
                     }
                 break;
 
