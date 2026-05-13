@@ -30,8 +30,8 @@ void DestroyEvent(pthread_event_t *event)
 {
     if (event == NULL)
         return;
-    DestroyMutex(&event->mutex);
     pthread_cond_destroy(&event->cond);
+    DestroyMutex(&event->mutex);    
 }
 
 BOOL SetEvent(pthread_event_t *event)
@@ -63,7 +63,7 @@ BOOL WaitEvent(pthread_event_t *event, int timeout)
     if (!event->signaled)
     {
         struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
+        clock_gettime(CLOCK_MONOTONIC, &ts);
         ts.tv_sec += timeout / 1000;
         ts.tv_nsec += (timeout % 1000) * 1000000;
         if (ts.tv_nsec >= 1000000000L)

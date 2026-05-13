@@ -417,6 +417,7 @@ static void *IFDH_SSCP_Proc(void *arg)
     }
 
     IFDH_LOG_INFO("Thread terminating");
+    return NULL;
 }
 
 BOOL IFDHCreate(DWORD Lun, LPSTR Device, UCHAR Address, DWORD Bitrate, const BYTE AuthKey[IFDH_SSCP_AUTH_KEY_LENGTH])
