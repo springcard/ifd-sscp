@@ -83,6 +83,75 @@ static void IFDHClearTransmit(IFDH_SSCP_INSTANCE_ST *instance)
     instance->x.transmit.rxLengthAct = 0;
 }
 
+static void IFDHClearControl(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    instance->x.control.controlCode = 0;
+    instance->x.control.txBuffer = NULL;
+    instance->x.control.rxBuffer = NULL;
+    instance->x.control.txLength = 0;
+    instance->x.control.rxLengthMax = 0;
+    instance->x.control.rxLengthAct = 0;
+    instance->x.control.responseCode = IFD_COMMUNICATION_ERROR;
+}
+
+static BOOL IFDHCancelTransmit(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    BOOL cancelled = FALSE;
+
+    if (instance == NULL)
+        return FALSE;
+
+    if (Lock(instance))
+    {
+        if ((instance->readerAction == IFDH_SSCP_ACTION_TRANSMIT) ||
+            (instance->readerAction == IFDH_SSCP_ACTION_TRANSMIT_RESP))
+        {
+            IFDH_LOG_CRITICAL("Transmit timeout: cancelling pending operation");
+            instance->x.transmit.cancelled = TRUE;
+            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+            IFDHClearTransmit(instance);
+            IFDHClose(instance);
+            ClearEvent(&instance->responseEvent);
+            cancelled = TRUE;
+        }
+        Unlock(instance);
+    }
+
+    if (cancelled)
+        SetEvent(&instance->actionEvent);
+
+    return cancelled;
+}
+
+static BOOL IFDHCancelControl(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    BOOL cancelled = FALSE;
+
+    if (instance == NULL)
+        return FALSE;
+
+    if (Lock(instance))
+    {
+        if ((instance->readerAction == IFDH_SSCP_ACTION_CONTROL) ||
+            (instance->readerAction == IFDH_SSCP_ACTION_CONTROL_RESP))
+        {
+            IFDH_LOG_CRITICAL("Control timeout: cancelling pending operation");
+            instance->x.control.cancelled = TRUE;
+            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+            IFDHClearControl(instance);
+            IFDHClose(instance);
+            ClearEvent(&instance->responseEvent);
+            cancelled = TRUE;
+        }
+        Unlock(instance);
+    }
+
+    if (cancelled)
+        SetEvent(&instance->actionEvent);
+
+    return cancelled;
+}
+
 static void *IFDH_SSCP_Proc(void *arg)
 {
     IFDH_SSCP_INSTANCE_ST *instance = (IFDH_SSCP_INSTANCE_ST *)arg;
@@ -229,44 +298,77 @@ static void *IFDH_SSCP_Proc(void *arg)
                     }
                 break;
                 case IFDH_SSCP_ACTION_CONTROL :
-                    instance->x.control.responseCode = IFDH_SSCP_Control(instance);
-                    instance->readerAction = IFDH_SSCP_ACTION_CONTROL_RESP;
-                    SetEvent(&instance->responseEvent);
+                    if (instance->x.control.cancelled)
+                    {
+                        IFDH_LOG_CRITICAL("Control: operation cancelled");
+                        instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                        IFDHClearControl(instance);
+                    }
+                    else
+                    {
+                        instance->x.control.responseCode = IFDH_SSCP_Control(instance);
+                        if (instance->x.control.cancelled)
+                        {
+                            IFDH_LOG_CRITICAL("Control: response discarded after cancellation");
+                            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                            IFDHClearControl(instance);
+                        }
+                        else
+                        {
+                            instance->readerAction = IFDH_SSCP_ACTION_CONTROL_RESP;
+                            SetEvent(&instance->responseEvent);
+                        }
+                    }
                 break;
                 case IFDH_SSCP_ACTION_CONTROL_RESP :
                     /* Do nothing, let the client retrieve its response */
                 break;
                 case IFDH_SSCP_ACTION_TRANSMIT :
-                    instance->cardState.apduPassed = TRUE;
-                    rc = SSCP_TransceiveNFC(instance->sscp_ctx, instance->x.transmit.txBuffer, instance->x.transmit.txLength, instance->x.transmit.rxBuffer, instance->x.transmit.rxLengthMax, &instance->x.transmit.rxLengthAct);
-                    if (rc == SSCP_SUCCESS)
+                    if (instance->x.transmit.cancelled)
                     {
-                        /* Success, response is ready */
-                        instance->readerAction = IFDH_SSCP_ACTION_TRANSMIT_RESP;                                
-                    }
-                    else if ((rc == SSCP_ERR_NFC_CARD_MUTE_OR_REMOVED) || (rc == SSCP_ERR_NFC_CARD_COMM_ERROR))
-                    {
-                        /* Not a reader error, but a card error */
+                        IFDH_LOG_CRITICAL("Transmit: operation cancelled");
                         instance->readerAction = IFDH_SSCP_ACTION_IDLE;
                         IFDHClearTransmit(instance);
-                        /* Reset card data */
-                        memset(&instance->cardState, 0, sizeof(instance->cardState));
-                        /* Say we have lost the card */
-                        SetEvent(&instance->statusEvent);
                     }
                     else
                     {
-                        /* We have lost the reader? */
-                        IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
-                        instance->readerState.ready = FALSE;
-                        instance->readerAction = IFDH_SSCP_ACTION_IDLE;
-                        IFDHClearTransmit(instance);
-                        /* We have lost the card in the meantime anyhow... */
-                        memset(&instance->cardState, 0, sizeof(instance->cardState));
-                        /* Say we have lost the card */
-                        SetEvent(&instance->statusEvent);
+                        instance->cardState.apduPassed = TRUE;
+                        rc = SSCP_TransceiveNFC(instance->sscp_ctx, instance->x.transmit.txBuffer, instance->x.transmit.txLength, instance->x.transmit.rxBuffer, instance->x.transmit.rxLengthMax, &instance->x.transmit.rxLengthAct);
+                        if (instance->x.transmit.cancelled)
+                        {
+                            IFDH_LOG_CRITICAL("Transmit: response discarded after cancellation");
+                            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                            IFDHClearTransmit(instance);
+                        }
+                        else if (rc == SSCP_SUCCESS)
+                        {
+                            /* Success, response is ready */
+                            instance->readerAction = IFDH_SSCP_ACTION_TRANSMIT_RESP;
+                        }
+                        else if ((rc == SSCP_ERR_NFC_CARD_MUTE_OR_REMOVED) || (rc == SSCP_ERR_NFC_CARD_COMM_ERROR))
+                        {
+                            /* Not a reader error, but a card error */
+                            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                            IFDHClearTransmit(instance);
+                            /* Reset card data */
+                            memset(&instance->cardState, 0, sizeof(instance->cardState));
+                            /* Say we have lost the card */
+                            SetEvent(&instance->statusEvent);
+                        }
+                        else
+                        {
+                            /* We have lost the reader? */
+                            IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
+                            instance->readerState.ready = FALSE;
+                            instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                            IFDHClearTransmit(instance);
+                            /* We have lost the card in the meantime anyhow... */
+                            memset(&instance->cardState, 0, sizeof(instance->cardState));
+                            /* Say we have lost the card */
+                            SetEvent(&instance->statusEvent);
+                        }
+                        SetEvent(&instance->responseEvent);
                     }
-                    SetEvent(&instance->responseEvent);
                 break;
                 case IFDH_SSCP_ACTION_TRANSMIT_RESP :
                     /* Do nothing, let the client retrieve its response */
@@ -589,6 +691,8 @@ BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuff
             instance->x.transmit.txLength = TxLength;
             instance->x.transmit.rxBuffer = RxBuffer;
             instance->x.transmit.rxLengthMax = RxLength;
+            instance->x.transmit.rxLengthAct = 0;
+            instance->x.transmit.cancelled = FALSE;
             /* Be ready to receive */
             ClearEvent(&instance->responseEvent);
             /* Tell the SSCP thread we have something to transmit */
@@ -608,7 +712,11 @@ BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength)
     if (instance == NULL)
         return FALSE;
     if (!WaitEvent(&instance->responseEvent, Timeout))
+    {
+        BOOL cancelled = IFDHCancelTransmit(instance);
+        (void) cancelled;
         return FALSE;
+    }
     if (Lock(instance))
     {
         if (instance->readerAction == IFDH_SSCP_ACTION_TRANSMIT_RESP)
@@ -617,6 +725,7 @@ BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength)
             *RxLength = instance->x.transmit.rxLengthAct;
             /* No more pending action */
             instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+            IFDHClearTransmit(instance);
             /* No need to wakeup the SSCP thread, let its timeout expire */
             rc = TRUE;
         }
@@ -643,6 +752,7 @@ BOOL IFDHAsyncControl(DWORD Lun, DWORD ControlCode, PUCHAR TxBuffer, DWORD TxLen
             instance->x.control.rxLengthMax = RxLength;
             instance->x.control.rxLengthAct = 0;
             instance->x.control.responseCode = IFD_COMMUNICATION_ERROR;
+            instance->x.control.cancelled = FALSE;
             /* Be ready to receive */
             ClearEvent(&instance->responseEvent);
             /* Tell the SSCP thread we have something to control */
@@ -662,7 +772,11 @@ BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *Cont
     if (instance == NULL)
         return FALSE;
     if (!WaitEvent(&instance->responseEvent, Timeout))
+    {
+        BOOL cancelled = IFDHCancelControl(instance);
+        (void) cancelled;
         return FALSE;
+    }
     if (Lock(instance))
     {
         if (instance->readerAction == IFDH_SSCP_ACTION_CONTROL_RESP)
@@ -674,6 +788,7 @@ BOOL IFDHWaitControl(DWORD Lun, int Timeout, PDWORD RxLength, RESPONSECODE *Cont
                 *ControlResponse = instance->x.control.responseCode;
             /* No more pending action */
             instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+            IFDHClearControl(instance);
             /* No need to wakeup the SSCP thread, let its timeout expire */
             rc = TRUE;
         }

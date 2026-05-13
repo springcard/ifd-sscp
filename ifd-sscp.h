@@ -115,6 +115,7 @@ typedef struct
             BYTE *rxBuffer;
             DWORD rxLengthMax;
             DWORD rxLengthAct;
+            BOOL cancelled;
         } transmit;
         struct
         {
@@ -125,6 +126,7 @@ typedef struct
             DWORD rxLengthMax;
             DWORD rxLengthAct;
             RESPONSECODE responseCode;
+            BOOL cancelled;
         } control;
     } x;
     
