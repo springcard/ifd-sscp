@@ -215,6 +215,8 @@ RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHIsCardPresent(Lun))
         return IFD_ICC_NOT_PRESENT;
+    if (RxLength == NULL)
+        return IFD_COMMUNICATION_ERROR;        
     if (!IFDHAsyncTransmit(Lun, TxBuffer, TxLength, RxBuffer, *RxLength))
         return IFD_COMMUNICATION_ERROR;
     if (!IFDHWaitTransmit(Lun, TRANSMIT_TIMEOUT, RxLength))

@@ -18,11 +18,37 @@ void DestroyMutex(pthread_mutex_t *mutex)
 
 BOOL CreateEvent(pthread_event_t *event)
 {
+    pthread_condattr_t attr;
+
     if (event == NULL)
         return FALSE;
+
     event->signaled = FALSE;
-    pthread_mutex_init(&event->mutex, NULL);
-    pthread_cond_init(&event->cond, NULL);    
+
+    if (pthread_mutex_init(&event->mutex, NULL) != 0)
+        return FALSE;
+
+    if (pthread_condattr_init(&attr) != 0)
+    {
+        pthread_mutex_destroy(&event->mutex);
+        return FALSE;
+    }
+
+    if (pthread_condattr_setclock(&attr, CLOCK_MONOTONIC) != 0)
+    {
+        pthread_condattr_destroy(&attr);
+        pthread_mutex_destroy(&event->mutex);
+        return FALSE;
+    }
+
+    if (pthread_cond_init(&event->cond, &attr) != 0)
+    {
+        pthread_condattr_destroy(&attr);
+        pthread_mutex_destroy(&event->mutex);
+        return FALSE;
+    }
+
+    pthread_condattr_destroy(&attr);
     return TRUE;
 }
 
