@@ -16,6 +16,13 @@ typedef struct _instance_list_st
 
 static instance_list_st *instance_list = NULL;
 
+static BOOL TimeReached(DWORD deadline)
+{
+    uint32_t now = (uint32_t)IFDH_SSCP_Now();
+
+    return (int32_t)(now - (uint32_t)deadline) >= 0;
+}
+
 static IFDH_SSCP_INSTANCE_ST *getInstance(DWORD Lun, BOOL silent)
 {
     instance_list_st *current = instance_list;
@@ -189,7 +196,7 @@ static void *IFDH_SSCP_Proc(void *arg)
             {
                 case IFDH_SSCP_ACTION_IDLE :
 
-                    if ((instance->readerState.timerOutput != 0) && (instance->readerState.timerOutput < IFDH_SSCP_Now()))
+                    if ((instance->readerState.timerOutput != 0) && TimeReached(instance->readerState.timerOutput))
                     {
                         /* Restore default LEDs */
                         instance->readerState.timerOutput = 0; /* No more timer */
