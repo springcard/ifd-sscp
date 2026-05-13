@@ -74,6 +74,15 @@ static void freeInstance(DWORD Lun)
     }
 }
 
+static void IFDHClearTransmit(IFDH_SSCP_INSTANCE_ST *instance)
+{
+    instance->x.transmit.txBuffer = NULL;
+    instance->x.transmit.rxBuffer = NULL;
+    instance->x.transmit.txLength = 0;
+    instance->x.transmit.rxLengthMax = 0;
+    instance->x.transmit.rxLengthAct = 0;
+}
+
 static void *IFDH_SSCP_Proc(void *arg)
 {
     IFDH_SSCP_INSTANCE_ST *instance = (IFDH_SSCP_INSTANCE_ST *)arg;
@@ -126,6 +135,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                                 /* Say we have lost the card */
                                 SetEvent(&instance->statusEvent);
                             }
+                            Unlock(instance);
                             continue;
                         }
                     }                    
@@ -238,6 +248,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     {
                         /* Not a reader error, but a card error */
                         instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                        IFDHClearTransmit(instance);
                         /* Reset card data */
                         memset(&instance->cardState, 0, sizeof(instance->cardState));
                         /* Say we have lost the card */
@@ -248,6 +259,8 @@ static void *IFDH_SSCP_Proc(void *arg)
                         /* We have lost the reader? */
                         IFDH_LOG_CRITICAL("Transmit: reader error %d", rc);
                         instance->readerState.ready = FALSE;
+                        instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                        IFDHClearTransmit(instance);
                         /* We have lost the card in the meantime anyhow... */
                         memset(&instance->cardState, 0, sizeof(instance->cardState));
                         /* Say we have lost the card */
