@@ -281,6 +281,7 @@ static void *IFDH_SSCP_Proc(void *arg)
                     {
                         IFDH_LOG_CRITICAL("Disconnect: reader error %d", rc);
                         instance->readerState.ready = FALSE;
+                        instance->readerAction = IFDH_SSCP_ACTION_IDLE;
                         /* We have lost the card in the meantime anyhow... */
                         memset(&instance->cardState, 0, sizeof(instance->cardState));
                         /* Say we have lost the card */
