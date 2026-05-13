@@ -540,16 +540,16 @@ BOOL IFDHDestroy(DWORD Lun)
     /* Wakeup the thread */
     SetEvent(&instance->actionEvent);
 
+    /* Close the reader -- This will make the thread fail anyway */
+    if (instance->sscp_ctx != NULL)
+        SSCP_Close(instance->sscp_ctx);
+
     /* Join the thread */
     if (pthread_join(instance->thread_id, NULL) != 0)
     {
         IFDH_LOG_CRITICAL("Failed to stop the driver thread");
         return FALSE;
     }
-
-    /* Close the reader */
-    if (instance->sscp_ctx != NULL)
-        SSCP_Close(instance->sscp_ctx);
 
     /* Try to de-allocated correctly */
     DestroyEvent(&instance->responseEvent);
