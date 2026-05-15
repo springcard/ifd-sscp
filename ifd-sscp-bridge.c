@@ -843,7 +843,7 @@ static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance)
         return FALSE;
 	}
 
-	rc = SSCP_Outputs(instance->sscp_ctx, 0x02, 0x0A, 0x02);
+	rc = SSCP_Outputs(instance->sscp_ctx, 0x02, 0x0A, 0x00);
 	if (rc)
 	{
 		IFDH_LOG_CRITICAL("SSCP_Outputs failed (err. %d)", rc);
