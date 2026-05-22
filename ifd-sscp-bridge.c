@@ -1,6 +1,12 @@
 #include "ifd-sscp.h"
 #include "ifd-sscp_i.h"
 
+#ifdef __linux__
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+
 static BOOL IFDHOpen(IFDH_SSCP_INSTANCE_ST *instance);
 static BOOL IFDHClose(IFDH_SSCP_INSTANCE_ST *instance);
 
@@ -159,10 +165,24 @@ static BOOL IFDHCancelControl(IFDH_SSCP_INSTANCE_ST *instance)
     return cancelled;
 }
 
+static void IFDHBoostWorkerPriority(void)
+{
+#ifdef __linux__
+    pid_t tid = (pid_t)syscall(SYS_gettid);
+
+    if (setpriority(PRIO_PROCESS, tid, -1) != 0)
+    {
+        IFDH_LOG_INFO("Could not raise SSCP thread priority: errno=%d", errno);
+    }
+#endif
+}
+
 static void *IFDH_SSCP_Proc(void *arg)
 {
     IFDH_SSCP_INSTANCE_ST *instance = (IFDH_SSCP_INSTANCE_ST *)arg;
     LONG rc;
+
+    IFDHBoostWorkerPriority();
 
     IFDH_LOG_INFO("Thread starting");
 
