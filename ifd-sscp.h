@@ -35,6 +35,7 @@ BOOL IFDHWaitStatusChange(DWORD Lun, int Timeout);
 BOOL IFDHKillStatusChange(DWORD Lun);
 BOOL IFDHPowerUp(DWORD Lun);
 BOOL IFDHPowerDown(DWORD Lun);
+BOOL IFDHReset(DWORD Lun);
 BOOL IFDHGetAtr(DWORD Lun, PUCHAR Atr, PDWORD AtrLength);
 BOOL IFDHAsyncTransmit(DWORD Lun, PUCHAR TxBuffer, DWORD TxLength, PUCHAR RxBuffer, DWORD RxLength);
 BOOL IFDHWaitTransmit(DWORD Lun, int Timeout, PDWORD RxLength);

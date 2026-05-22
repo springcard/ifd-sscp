@@ -196,7 +196,7 @@ static void *IFDH_SSCP_Proc(void *arg)
 
         if ((instance->readerState.open) && (instance->readerState.ready))
         {
-            (void) WaitEvent(&instance->actionEvent, 50); /* Default polling/tracking interval, don't care for result */
+            (void) WaitEvent(&instance->actionEvent, 150); /* Default polling/tracking interval, don't care for result */
         }
         else
         {
@@ -400,11 +400,13 @@ static void *IFDH_SSCP_Proc(void *arg)
                 case IFDH_SSCP_ACTION_TRANSMIT_RESP :
                     /* Do nothing, let the client retrieve its response */
                 break;
+
                 case  IFDH_SSCP_ACTION_DISCONNECT :
                     rc = SSCP_ReleaseNFC(instance->sscp_ctx);
                     if (rc == SSCP_SUCCESS)
                     {
                         instance->readerAction = IFDH_SSCP_ACTION_IDLE;
+                        instance->cardState.apduPassed = FALSE;
                     }
                     else
                     {
@@ -694,6 +696,28 @@ BOOL IFDHPowerDown(DWORD Lun)
             instance->x.any.cancelled = TRUE;
             /* Release the card */
             instance->cardState.active = FALSE;
+            /* Tell the SSCP thread we have something to do */
+            instance->readerAction = IFDH_SSCP_ACTION_DISCONNECT;
+            SetEvent(&instance->actionEvent); /* Wakeup the SSCP thread */
+            rc = TRUE;
+        }
+        Unlock(instance);
+    }
+    return rc;
+}
+
+BOOL IFDHReset(DWORD Lun)
+{
+    BOOL rc = FALSE;
+    IFDH_SSCP_INSTANCE_ST *instance = getInstance(Lun, FALSE);
+    if (instance == NULL)
+        return FALSE;
+    if (Lock(instance))
+    {
+        if ((instance->readerState.ready) && (instance->cardState.present))
+        {
+            /* Cancel any transmit/control operations */
+            instance->x.any.cancelled = TRUE;
             /* Tell the SSCP thread we have something to do */
             instance->readerAction = IFDH_SSCP_ACTION_DISCONNECT;
             SetEvent(&instance->actionEvent); /* Wakeup the SSCP thread */

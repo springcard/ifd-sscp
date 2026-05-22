@@ -198,11 +198,7 @@ RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action, PUCHAR Atr, PDWORD AtrLength)
             break;
 
         case IFD_RESET:
-            if (!IFDHPowerDown(Lun))
-                return IFD_COMMUNICATION_ERROR;
-            if (!IFDHIsCardPresent(Lun))
-                return IFD_ICC_NOT_PRESENT;
-            if (!IFDHPowerUp(Lun))
+            if (!IFDHReset(Lun))
                 return IFD_COMMUNICATION_ERROR;
             if (!IFDHGetAtr(Lun, Atr, AtrLength))
                 return IFD_COMMUNICATION_ERROR;
