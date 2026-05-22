@@ -165,24 +165,10 @@ static BOOL IFDHCancelControl(IFDH_SSCP_INSTANCE_ST *instance)
     return cancelled;
 }
 
-static void IFDHBoostWorkerPriority(void)
-{
-#ifdef __linux__
-    pid_t tid = (pid_t)syscall(SYS_gettid);
-
-    if (setpriority(PRIO_PROCESS, tid, -1) != 0)
-    {
-        IFDH_LOG_INFO("Could not raise SSCP thread priority: errno=%d", errno);
-    }
-#endif
-}
-
 static void *IFDH_SSCP_Proc(void *arg)
 {
     IFDH_SSCP_INSTANCE_ST *instance = (IFDH_SSCP_INSTANCE_ST *)arg;
     LONG rc;
-
-    IFDHBoostWorkerPriority();
 
     IFDH_LOG_INFO("Thread starting");
 
