@@ -196,7 +196,7 @@ static void *IFDH_SSCP_Proc(void *arg)
 
         if ((instance->readerState.open) && (instance->readerState.ready))
         {
-            (void) WaitEvent(&instance->actionEvent, 150); /* Default polling interval, don't care for result */
+            (void) WaitEvent(&instance->actionEvent, 50); /* Default polling/tracking interval, don't care for result */
         }
         else
         {
