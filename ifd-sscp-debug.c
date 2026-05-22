@@ -44,6 +44,7 @@ void IFDHLog(int level, int priority, const char *fmt, ...)
     va_start(args, fmt);
     (void) vprintf(fmt, args);
     va_end(args);
+    printf("\n");
     return;
 
     IFDHLogInit();
