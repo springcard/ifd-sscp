@@ -668,8 +668,10 @@ BOOL IFDHPowerDown(DWORD Lun)
         return FALSE;
     if (Lock(instance))
     {
-        if ((instance->readerState.ready) && (instance->cardState.present) && (instance->readerAction == IFDH_SSCP_ACTION_IDLE))
+        if ((instance->readerState.ready) && (instance->cardState.present))
         {
+            /* Cancel any transmit/control operations */
+            instance->x.any.cancelled = TRUE;
             /* Release the card */
             instance->cardState.active = FALSE;
             /* Tell the SSCP thread we have something to do */

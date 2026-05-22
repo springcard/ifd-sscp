@@ -40,6 +40,12 @@ void IFDHLog(int level, int priority, const char *fmt, ...)
     char message[640];
     va_list args;
 
+    printf("CCID: ");
+    va_start(args, fmt);
+    (void) vprintf(fmt, args);
+    va_end(args);
+    return;
+
     IFDHLogInit();
 
     if ((IFDHLogLevel & level) == 0)

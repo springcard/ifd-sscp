@@ -110,15 +110,20 @@ typedef struct
     {
         struct
         {
+            BOOL cancelled;
+        } any;
+        struct
+        {
+            BOOL cancelled;            
             BYTE *txBuffer;
             DWORD txLength;
             BYTE *rxBuffer;
             DWORD rxLengthMax;
             DWORD rxLengthAct;
-            BOOL cancelled;
         } transmit;
         struct
         {
+            BOOL cancelled;
             DWORD controlCode;
             BYTE *txBuffer;
             DWORD txLength;
@@ -126,7 +131,6 @@ typedef struct
             DWORD rxLengthMax;
             DWORD rxLengthAct;
             RESPONSECODE responseCode;
-            BOOL cancelled;
         } control;
     } x;
     
