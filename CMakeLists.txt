@@ -9,6 +9,15 @@ find_package(Threads REQUIRED)
 
 set(LIB_NAME ifd-sscp)
 
+find_path(PCSC_INCLUDE_DIR
+    NAMES ifdhandler.h
+    PATH_SUFFIXES PCSC
+)
+
+if(NOT PCSC_INCLUDE_DIR)
+    message(FATAL_ERROR "PC/SC-Lite headers were not found. Install pcsc-lite development headers for the target sysroot, or set PCSC_INCLUDE_DIR.")
+endif()
+
 set(SSCP_HOST_GIT_REPOSITORY "https://github.com/springcard/sscp-host.git" CACHE STRING "sscp-host Git repository")
 set(SSCP_HOST_GIT_TAG "master" CACHE STRING "sscp-host Git tag, branch, or commit")
 set(SSCP_HOST_SOURCE_DIR "${CMAKE_BINARY_DIR}/sscp-host" CACHE PATH "sscp-host checkout directory")
@@ -39,7 +48,7 @@ set_target_properties(sscp-host PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(${LIB_NAME} SHARED ifd-sscp.c ifd-sscp-bridge.c ifd-sscp-ipc.c ifd-sscp-utils.c ifd-sscp-control.c ifd-sscp-debug.c)
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME "ifd-sscp")
 
-target_include_directories(${LIB_NAME} PRIVATE /usr/include/PCSC)
+target_include_directories(${LIB_NAME} PRIVATE "${PCSC_INCLUDE_DIR}")
 target_link_libraries(${LIB_NAME} PRIVATE sscp-host Threads::Threads)
 
 add_custom_command(TARGET ${LIB_NAME} POST_BUILD
